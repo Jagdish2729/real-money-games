@@ -5,7 +5,7 @@ import { FormEvent, useState } from "react";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const faces = [1, 2, 3, 4, 5, 6];
 
-type DiceResult = {
+ type DiceResult = {
   prediction: number;
   result: number;
   stakePaise: string;
@@ -117,9 +117,9 @@ export default function DicePage() {
               <input
                 required
                 type="number"
-                min="1"
-                step="0.01"
-                inputMode="decimal"
+                min="10"
+                step="10"
+                inputMode="numeric"
                 value={stake}
                 onChange={(event) => setStake(event.target.value)}
                 placeholder="Enter stake"
@@ -127,6 +127,7 @@ export default function DicePage() {
                 className="min-w-0 flex-1 bg-transparent px-4 py-4 text-base outline-none placeholder:text-white/20 disabled:opacity-60"
               />
             </div>
+            <span className="mt-2 block text-xs text-white/30">Amount changes in ₹10 steps</span>
           </label>
 
           {error && <p className="mt-4 rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-300">{error}</p>}
