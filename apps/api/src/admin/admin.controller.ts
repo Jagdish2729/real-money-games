@@ -1,17 +1,20 @@
-import { Body, Controller, Inject, Param, Patch } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Inject, Param, Post, UseGuards } from "@nestjs/common";
+import { AdminGuard } from "./admin.guard";
 import { AdminService } from "./admin.service";
 
 @Controller("admin")
+@UseGuards(AdminGuard)
 export class AdminController {
   constructor(@Inject(AdminService) private readonly adminService: AdminService) {}
 
-  @Patch("deposits/:depositId/approve")
+  @Post("deposits/:depositId/approve")
   approveDeposit(@Param("depositId") depositId: string) {
     return this.adminService.approveDeposit(depositId);
   }
 
-  @Patch("deposits/:depositId/reject")
+  @Post("deposits/:depositId/reject")
   rejectDeposit(@Param("depositId") depositId: string, @Body() body: { reason?: string }) {
-    return this.adminService.rejectDeposit(depositId, body.reason ?? "");
+    if (!body.reason?.trim()) throw new BadRequestException("Rejection reason is required");
+    return this.adminService.rejectDeposit(depositId, body.reason);
   }
 }
