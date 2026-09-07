@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+export type TokenPayload = {
+  sub: string;
+  iat: number;
+};
 
 @Injectable()
 export class TokenService {
@@ -14,5 +19,33 @@ export class TokenService {
       .digest("base64url");
 
     return `${payload}.${signature}`;
+  }
+
+  verifyToken(token: string): TokenPayload | null {
+    const [payload, signature] = token.split(".");
+    if (!payload || !signature) return null;
+
+    const expected = createHmac("sha256", this.secret)
+      .update(payload)
+      .digest("base64url");
+
+    const providedBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expected);
+    if (
+      providedBuffer.length !== expectedBuffer.length ||
+      !timingSafeEqual(providedBuffer, expectedBuffer)
+    ) {
+      return null;
+    }
+
+    try {
+      const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as TokenPayload;
+      if (!decoded.sub || typeof decoded.sub !== "string" || typeof decoded.iat !== "number") {
+        return null;
+      }
+      return decoded;
+    } catch {
+      return null;
+    }
   }
 }
