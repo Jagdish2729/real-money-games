@@ -22,7 +22,8 @@ export class GameService {
 
     const result = randomInt(1, 7);
     const won = result === prediction;
-    const payoutPaise = won ? BigInt(stakePaise * 6) : 0n;
+    const stake = BigInt(stakePaise);
+    const payoutPaise = won ? stake * 6n : 0n;
     const referenceId = `game:dice:${randomUUID()}`;
 
     return this.prisma.$transaction(async (tx) => {
@@ -30,7 +31,6 @@ export class GameService {
       if (!wallet) throw new NotFoundException("Wallet not found");
 
       const availablePaise = wallet.balancePaise - wallet.lockedPaise;
-      const stake = BigInt(stakePaise);
       if (availablePaise < stake) {
         throw new BadRequestException("Insufficient wallet balance");
       }
