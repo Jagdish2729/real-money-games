@@ -85,7 +85,7 @@ model OtpRequest {
 }
 
 model Wallet {
-  id           String   @id @default(uuid())
+  id           String   @id @default(uuid()) @db.Uuid
   userId       String   @unique @db.Uuid
   balancePaise BigInt   @default(0)
   lockedPaise  BigInt   @default(0)
@@ -99,7 +99,7 @@ model Wallet {
 }
 
 model WalletTransaction {
-  id            String                  @id @default(uuid())
+  id            String                  @id @default(uuid()) @db.Uuid
   walletId      String                  @db.Uuid
   userId        String                  @db.Uuid
   type          WalletTransactionType
