@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { randomInt } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma.service";
 
 @Injectable()
@@ -23,7 +23,7 @@ export class GameService {
     const result = randomInt(1, 7);
     const won = result === prediction;
     const payoutPaise = won ? BigInt(stakePaise * 6) : 0n;
-    const referenceId = `game:dice:${crypto.randomUUID()}`;
+    const referenceId = `game:dice:${randomUUID()}`;
 
     return this.prisma.$transaction(async (tx) => {
       const wallet = await tx.wallet.findUnique({ where: { userId } });
