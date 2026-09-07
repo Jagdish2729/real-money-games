@@ -23,7 +23,7 @@ export class GameService {
     const result = randomInt(1, 7);
     const won = result === prediction;
     const stake = BigInt(stakePaise);
-    const payoutPaise = won ? stake * 6n : 0n;
+    const payoutPaise = won ? stake * 2n : 0n;
     const referenceId = `game:dice:${randomUUID()}`;
 
     return this.prisma.$transaction(async (tx) => {
