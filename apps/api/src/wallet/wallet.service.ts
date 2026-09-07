@@ -100,4 +100,50 @@ export class WalletService {
       },
     };
   }
+
+  async devTopUp(userId: string, amountRupees: number) {
+    if (process.env.NODE_ENV === "production") {
+      throw new BadRequestException("Development top-up is disabled in production");
+    }
+
+    if (!Number.isSafeInteger(amountRupees) || amountRupees < 1) {
+      throw new BadRequestException("Top-up amount must be a positive whole number of rupees");
+    }
+
+    const amountPaise = BigInt(amountRupees) * 100n;
+
+    return this.prisma.$transaction(async (tx) => {
+      const wallet = await tx.wallet.findUnique({ where: { userId } });
+      if (!wallet) throw new BadRequestException("Wallet not found");
+
+      const balanceBefore = wallet.balancePaise;
+      const balanceAfter = balanceBefore + amountPaise;
+      const referenceId = `dev:topup:${crypto.randomUUID()}`;
+
+      await tx.wallet.update({
+        where: { id: wallet.id },
+        data: { balancePaise: balanceAfter },
+      });
+
+      await tx.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          userId,
+          type: "DEPOSIT",
+          status: "COMPLETED",
+          amountPaise,
+          balanceBefore,
+          balanceAfter,
+          referenceId,
+          description: "Development test wallet top-up",
+        },
+      });
+
+      return {
+        message: "Development wallet top-up completed",
+        amountPaise: amountPaise.toString(),
+        balancePaise: balanceAfter.toString(),
+      };
+    });
+  }
 }
