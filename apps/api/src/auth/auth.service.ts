@@ -1,6 +1,7 @@
-import { Injectable, TooManyRequestsException, UnauthorizedException, Inject } from "@nestjs/common";
+import { Injectable, TooManyRequestsException, UnauthorizedException } from "@nestjs/common";
 import { createHash, randomInt } from "node:crypto";
 import { PrismaService } from "../prisma.service";
+import { TokenService } from "./token.service";
 
 const OTP_LENGTH = 6;
 const OTP_TTL_MINUTES = 5;
@@ -9,11 +10,13 @@ const RESEND_COOLDOWN_SECONDS = 30;
 
 @Injectable()
 export class AuthService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tokenService: TokenService,
+  ) {}
 
   async requestOtp(phoneNumber: string) {
     const normalizedPhone = phoneNumber.trim();
-
     const latest = await this.prisma.otpRequest.findFirst({
       where: { phoneNumber: normalizedPhone },
       orderBy: { createdAt: "desc" },
@@ -33,14 +36,9 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
     await this.prisma.otpRequest.create({
-      data: {
-        phoneNumber: normalizedPhone,
-        codeHash,
-        expiresAt,
-      },
+      data: { phoneNumber: normalizedPhone, codeHash, expiresAt },
     });
 
-    // Development-only response. A real SMS provider will replace this before production.
     return {
       message: "OTP generated successfully",
       expiresInSeconds: OTP_TTL_MINUTES * 60,
@@ -51,17 +49,13 @@ export class AuthService {
   async verifyOtp(phoneNumber: string, code: string) {
     const normalizedPhone = phoneNumber.trim();
     const otp = await this.prisma.otpRequest.findFirst({
-      where: {
-        phoneNumber: normalizedPhone,
-        verifiedAt: null,
-      },
+      where: { phoneNumber: normalizedPhone, verifiedAt: null },
       orderBy: { createdAt: "desc" },
     });
 
     if (!otp || otp.expiresAt.getTime() <= Date.now()) {
       throw new UnauthorizedException("OTP is invalid or expired");
     }
-
     if (otp.attempts >= MAX_VERIFY_ATTEMPTS) {
       throw new UnauthorizedException("Maximum OTP attempts exceeded");
     }
@@ -93,8 +87,13 @@ export class AuthService {
       });
     });
 
+    if (user.status !== "ACTIVE") {
+      throw new UnauthorizedException("User account is not active");
+    }
+
     return {
       message: "OTP verified successfully",
+      accessToken: this.tokenService.createToken(user.id),
       user,
     };
   }
