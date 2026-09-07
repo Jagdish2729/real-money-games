@@ -35,4 +35,13 @@ export class WalletController {
 
     return this.walletService.createDeposit(user.id, body.amountRupees, body.utr.trim(), body.proofUrl?.trim());
   }
+
+  @Post("dev/top-up")
+  devTopUp(@CurrentUser() user: AuthUser, @Body() body: { amountRupees?: number }) {
+    if (body.amountRupees === undefined || !Number.isFinite(body.amountRupees) || body.amountRupees <= 0) {
+      throw new BadRequestException("A valid top-up amount is required");
+    }
+
+    return this.walletService.devTopUp(user.id, body.amountRupees);
+  }
 }
