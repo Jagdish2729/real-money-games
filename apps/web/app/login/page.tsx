@@ -2,18 +2,75 @@
 
 import { FormEvent, useState } from "react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
 export default function LoginPage() {
   const [phone, setPhone] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [developmentOtp, setDevelopmentOtp] = useState("");
 
-  function handleSendOtp(event: FormEvent<HTMLFormElement>) {
+  async function handleSendOtp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (/^[6-9]\d{9}$/.test(phone)) setOtpSent(true);
+    setError("");
+    setDevelopmentOtp("");
+
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+      setError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/request-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: `+91${phone}` }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message ?? "Unable to send OTP");
+      }
+
+      setOtpSent(true);
+      if (data.developmentOtp) setDevelopmentOtp(data.developmentOtp);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to send OTP");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function handleVerify(event: FormEvent<HTMLFormElement>) {
+  async function handleVerify(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
+
+    if (otp.length !== 6) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: `+91${phone}`, code: otp }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message ?? "OTP verification failed");
+      }
+
+      localStorage.setItem("accessToken", data.accessToken);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      window.location.href = "/games";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "OTP verification failed");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -53,12 +110,14 @@ export default function LoginPage() {
                 </div>
               </label>
 
+              {error && <p className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-300">{error}</p>}
+
               <button
                 type="submit"
-                disabled={phone.length !== 10}
+                disabled={phone.length !== 10 || loading}
                 className="w-full rounded-2xl bg-white py-4 text-sm font-bold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Send OTP
+                {loading ? "Sending OTP..." : "Send OTP"}
               </button>
             </form>
           ) : (
@@ -77,17 +136,25 @@ export default function LoginPage() {
                 />
               </label>
 
+              {developmentOtp && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/60">
+                  Development OTP: <span className="font-bold text-white">{developmentOtp}</span>
+                </div>
+              )}
+
+              {error && <p className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-300">{error}</p>}
+
               <button
                 type="submit"
-                disabled={otp.length !== 6}
+                disabled={otp.length !== 6 || loading}
                 className="w-full rounded-2xl bg-white py-4 text-sm font-bold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Verify & Continue
+                {loading ? "Verifying..." : "Verify & Continue"}
               </button>
 
               <button
                 type="button"
-                onClick={() => { setOtpSent(false); setOtp(""); }}
+                onClick={() => { setOtpSent(false); setOtp(""); setError(""); setDevelopmentOtp(""); }}
                 className="w-full py-2 text-sm font-semibold text-white/45 hover:text-white"
               >
                 Change mobile number
