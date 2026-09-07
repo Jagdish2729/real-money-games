@@ -1,9 +1,9 @@
-import { BadRequestException, Body, Controller, Post } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Inject, Post } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(@Inject(AuthService) private readonly authService: AuthService) {}
 
   @Post("request-otp")
   requestOtp(@Body() body: { phoneNumber?: string }) {
