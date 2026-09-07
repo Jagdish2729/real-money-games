@@ -1,4 +1,4 @@
-import { Injectable, TooManyRequestsException, UnauthorizedException } from "@nestjs/common";
+import { Inject, Injectable, TooManyRequestsException, UnauthorizedException } from "@nestjs/common";
 import { createHash, randomInt } from "node:crypto";
 import { PrismaService } from "../prisma.service";
 import { TokenService } from "./token.service";
@@ -11,8 +11,8 @@ const RESEND_COOLDOWN_SECONDS = 30;
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly tokenService: TokenService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(TokenService) private readonly tokenService: TokenService,
   ) {}
 
   async requestOtp(phoneNumber: string) {
