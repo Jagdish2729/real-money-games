@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma.service";
 
 @Injectable()
@@ -11,12 +11,9 @@ export class WalletService {
       select: { id: true, balancePaise: true, lockedPaise: true },
     });
 
-    if (!wallet) {
-      throw new BadRequestException("Wallet not found");
-    }
+    if (!wallet) throw new BadRequestException("Wallet not found");
 
     const availablePaise = wallet.balancePaise - wallet.lockedPaise;
-
     return {
       id: wallet.id,
       balancePaise: wallet.balancePaise.toString(),
@@ -50,5 +47,57 @@ export class WalletService {
       balanceBefore: transaction.balanceBefore.toString(),
       balanceAfter: transaction.balanceAfter.toString(),
     }));
+  }
+
+  async createDeposit(userId: string, amountRupees: number, utr: string, proofUrl?: string) {
+    if (!Number.isSafeInteger(amountRupees) || amountRupees < 1) {
+      throw new BadRequestException("Deposit amount must be a positive whole number of rupees");
+    }
+
+    const amountPaise = BigInt(amountRupees) * 100n;
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+    const existingToday = await this.prisma.deposit.findFirst({
+      where: {
+        userId,
+        createdAt: { gte: startOfDay, lt: endOfDay },
+      },
+      select: { id: true },
+    });
+
+    if (existingToday) {
+      throw new ConflictException("Only one deposit request is allowed per day");
+    }
+
+    const existingUtr = await this.prisma.deposit.findUnique({ where: { utr } });
+    if (existingUtr) throw new ConflictException("This UTR has already been submitted");
+
+    const deposit = await this.prisma.deposit.create({
+      data: {
+        userId,
+        amountPaise,
+        utr,
+        proofUrl: proofUrl || null,
+        status: "PENDING",
+      },
+      select: {
+        id: true,
+        amountPaise: true,
+        utr: true,
+        proofUrl: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      message: "Deposit submitted successfully",
+      deposit: {
+        ...deposit,
+        amountPaise: deposit.amountPaise.toString(),
+      },
+    };
   }
 }
