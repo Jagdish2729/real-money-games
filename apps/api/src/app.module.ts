@@ -5,9 +5,10 @@ import { AuthModule } from "./auth/auth.module";
 import { WalletModule } from "./wallet/wallet.module";
 import { DepositModule } from "./deposit/deposit.module";
 import { AdminModule } from "./admin/admin.module";
+import { GameModule } from "./game/game.module";
 
 @Module({
-  imports: [AuthModule, WalletModule, DepositModule, AdminModule],
+  imports: [AuthModule, WalletModule, DepositModule, AdminModule, GameModule],
   controllers: [AppController],
   providers: [PrismaService],
   exports: [PrismaService],
