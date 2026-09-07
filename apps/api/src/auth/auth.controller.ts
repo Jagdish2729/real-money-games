@@ -1,5 +1,16 @@
-import { BadRequestException, Body, Controller, Inject, Post } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Post,
+  UseGuards,
+} from "@nestjs/common";
 import { AuthService } from "./auth.service";
+import { AuthGuard } from "./auth.guard";
+import { CurrentUser } from "./current-user.decorator";
+import type { AuthUser } from "./auth.types";
 
 @Controller("auth")
 export class AuthController {
@@ -25,5 +36,11 @@ export class AuthController {
     }
 
     return this.authService.verifyOtp(body.phoneNumber, body.code);
+  }
+
+  @Get("me")
+  @UseGuards(AuthGuard)
+  me(@CurrentUser() user: AuthUser) {
+    return { user };
   }
 }
