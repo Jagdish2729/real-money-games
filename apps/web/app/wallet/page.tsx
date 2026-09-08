@@ -50,13 +50,13 @@ export default function WalletPage() {
         <header className="flex h-20 items-center justify-between border-b border-white/10">
           <a href="/" className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-lg font-black text-black">R</span>
-            <span className="text-base font-bold tracking-tight">REAL MONEY GAMES</span>
+            <span className="text-base font-bold tracking-tight">ROLLRUSH</span>
           </a>
           <a href="/games" className="text-sm font-semibold text-white/55 hover:text-white">Games</a>
         </header>
 
         <section className="py-10 sm:py-14">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">Wallet</p>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">RollRush wallet</p>
           <h1 className="mt-2 text-4xl font-black tracking-[-0.03em] sm:text-5xl">Your money, clearly tracked.</h1>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-white/45 sm:text-base">
             Deposits, stakes, payouts and withdrawals are recorded as separate wallet transactions so every balance change has a traceable reference.
