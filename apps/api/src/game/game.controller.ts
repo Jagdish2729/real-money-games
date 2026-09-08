@@ -17,6 +17,15 @@ export class GameController {
     return this.gameService.playDice(user.id, Number(body.prediction), Number(body.stakeRupees));
   }
 
+  @Post("coin-toss/play")
+  playCoinToss(@CurrentUser() user: AuthUser, @Body() body: { prediction?: string; stakeRupees?: number }) {
+    if (body.prediction === undefined || body.stakeRupees === undefined) {
+      throw new BadRequestException("Prediction and stake are required");
+    }
+    const prediction = String(body.prediction).toUpperCase() as "HEADS" | "TAILS";
+    return this.gameService.playCoinToss(user.id, prediction, Number(body.stakeRupees));
+  }
+
   @Get("history")
   history(@CurrentUser() user: AuthUser, @Query("limit") limit?: string) {
     const parsedLimit = limit ? Number.parseInt(limit, 10) : 20;
