@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Inject, Param, Post, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { AdminGuard } from "./admin.guard";
 import { AdminService } from "./admin.service";
 
@@ -6,6 +6,20 @@ import { AdminService } from "./admin.service";
 @UseGuards(AdminGuard)
 export class AdminController {
   constructor(@Inject(AdminService) private readonly adminService: AdminService) {}
+
+  @Get("dashboard")
+  dashboard() {
+    return this.adminService.getDashboard();
+  }
+
+  @Get("deposits")
+  deposits(@Query("status") status?: string) {
+    const normalized = status?.toUpperCase();
+    if (normalized && !["PENDING", "APPROVED", "REJECTED"].includes(normalized)) {
+      throw new BadRequestException("Invalid deposit status");
+    }
+    return this.adminService.getDeposits(normalized as "PENDING" | "APPROVED" | "REJECTED" | undefined);
+  }
 
   @Post("deposits/:depositId/approve")
   approveDeposit(@Param("depositId") depositId: string) {
