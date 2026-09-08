@@ -62,11 +62,9 @@ export class WalletService {
       const availablePaise = wallet.balancePaise - wallet.lockedPaise;
       if (availablePaise < amountPaise) throw new BadRequestException("Insufficient available wallet balance");
 
-      const lockedAfter = wallet.lockedPaise + amountPaise;
-      await tx.wallet.update({ where: { id: wallet.id }, data: { lockedPaise: lockedAfter } });
-      const referenceId = `withdrawal:${randomUUID()}`;
-      await tx.walletTransaction.create({ data: { walletId: wallet.id, userId, type: "WITHDRAWAL", status: "PENDING", amountPaise, balanceBefore: wallet.balancePaise, balanceAfter: wallet.balancePaise, referenceId, description: `Withdrawal requested to ${normalizedUpi}` } });
       const withdrawal = await tx.withdrawal.create({ data: { userId, amountPaise, upiId: normalizedUpi, status: "PENDING" }, select: { id: true, amountPaise: true, upiId: true, status: true, createdAt: true } });
+      await tx.wallet.update({ where: { id: wallet.id }, data: { lockedPaise: wallet.lockedPaise + amountPaise } });
+      await tx.walletTransaction.create({ data: { walletId: wallet.id, userId, type: "WITHDRAWAL", status: "PENDING", amountPaise, balanceBefore: wallet.balancePaise, balanceAfter: wallet.balancePaise, referenceId: `withdrawal:${withdrawal.id}`, description: `Withdrawal requested to ${normalizedUpi}` } });
       return { message: "Withdrawal request submitted successfully", withdrawal: { ...withdrawal, amountPaise: withdrawal.amountPaise.toString() }, availablePaise: (availablePaise - amountPaise).toString() };
     });
   }
