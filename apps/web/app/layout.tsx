@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Real Money Games",
-  description: "Secure and transparent prediction games.",
+  title: "RollRush – Roll. Toss. Win.",
+  description: "RollRush is a secure and transparent prediction-game experience for dice and coin toss games.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
