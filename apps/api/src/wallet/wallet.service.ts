@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma.service";
 
+const DAILY_DEPOSIT_LIMIT = 5;
+
 @Injectable()
 export class WalletService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
@@ -49,26 +51,42 @@ export class WalletService {
     }));
   }
 
+  private getTodayRange() {
+    const now = new Date();
+    return {
+      startOfDay: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+      endOfDay: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1),
+    };
+  }
+
+  async getDepositLimit(userId: string) {
+    const { startOfDay, endOfDay } = this.getTodayRange();
+    const used = await this.prisma.deposit.count({
+      where: { userId, createdAt: { gte: startOfDay, lt: endOfDay } },
+    });
+    const remaining = Math.max(DAILY_DEPOSIT_LIMIT - used, 0);
+
+    return {
+      dailyLimit: DAILY_DEPOSIT_LIMIT,
+      usedToday: used,
+      remainingToday: remaining,
+    };
+  }
+
   async createDeposit(userId: string, amountRupees: number, utr: string, proofUrl?: string) {
     if (!Number.isSafeInteger(amountRupees) || amountRupees < 1) {
       throw new BadRequestException("Deposit amount must be a positive whole number of rupees");
     }
 
     const amountPaise = BigInt(amountRupees) * 100n;
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const { startOfDay, endOfDay } = this.getTodayRange();
 
-    const existingToday = await this.prisma.deposit.findFirst({
-      where: {
-        userId,
-        createdAt: { gte: startOfDay, lt: endOfDay },
-      },
-      select: { id: true },
+    const depositsToday = await this.prisma.deposit.count({
+      where: { userId, createdAt: { gte: startOfDay, lt: endOfDay } },
     });
 
-    if (existingToday) {
-      throw new ConflictException("Only one deposit request is allowed per day");
+    if (depositsToday >= DAILY_DEPOSIT_LIMIT) {
+      throw new ConflictException(`Daily deposit limit reached. Only ${DAILY_DEPOSIT_LIMIT} deposit requests are allowed per day.`);
     }
 
     const existingUtr = await this.prisma.deposit.findUnique({ where: { utr } });
@@ -92,8 +110,11 @@ export class WalletService {
       },
     });
 
+    const remainingToday = Math.max(DAILY_DEPOSIT_LIMIT - depositsToday - 1, 0);
+
     return {
       message: "Deposit submitted successfully",
+      remainingToday,
       deposit: {
         ...deposit,
         amountPaise: deposit.amountPaise.toString(),
