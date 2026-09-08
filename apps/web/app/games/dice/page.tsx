@@ -5,14 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const faces = [1, 2, 3, 4, 5, 6];
 
-type DiceResult = {
-  prediction: number;
-  result: number;
-  stakePaise: string;
-  payoutPaise: string;
-  won: boolean;
-  balancePaise: string;
-};
+type DiceResult = { prediction: number; result: number; stakePaise: string; payoutPaise: string; won: boolean; balancePaise: string; };
 
 function DieFace({ value }: { value: number }) {
   const pips: Record<number, string> = { 1: "•", 2: "••", 3: "•••", 4: "••••", 5: "•••••", 6: "••••••" };
@@ -27,26 +20,18 @@ export default function DicePage() {
   const [error, setError] = useState("");
   const [result, setResult] = useState<DiceResult | null>(null);
 
-  useEffect(() => {
-    if (!loading) return;
-    const interval = window.setInterval(() => setRollingFace((current) => (current % 6) + 1), 110);
-    return () => window.clearInterval(interval);
-  }, [loading]);
+  useEffect(() => { if (!loading) return; const interval = window.setInterval(() => setRollingFace((current) => (current % 6) + 1), 110); return () => window.clearInterval(interval); }, [loading]);
 
   async function playDice(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setResult(null);
+    event.preventDefault(); setError(""); setResult(null);
     const token = localStorage.getItem("accessToken");
     if (!token) { window.location.href = "/login"; return; }
     const stakeRupees = Number(stake);
     if (!selected || !Number.isFinite(stakeRupees) || stakeRupees < 10 || stakeRupees % 10 !== 0) { setError("Select a number and enter a valid stake in ₹10 steps."); return; }
-    setLoading(true);
-    const startedAt = Date.now();
+    setLoading(true); const startedAt = Date.now();
     try {
       const response = await fetch(`${API_BASE_URL}/games/dice/play`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ prediction: selected, stakeRupees }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message ?? "Unable to play dice");
+      const data = await response.json(); if (!response.ok) throw new Error(data.message ?? "Unable to play dice");
       const remaining = Math.max(0, 1500 - (Date.now() - startedAt));
       window.setTimeout(() => { setRollingFace(data.result); setResult(data); setLoading(false); }, remaining);
     } catch (err) { setLoading(false); setError(err instanceof Error ? err.message : "Unable to play dice"); }
@@ -57,10 +42,10 @@ export default function DicePage() {
   return (
     <main className="min-h-screen bg-[#07080b] text-white">
       <div className="mx-auto max-w-4xl px-5 pb-12 sm:px-8">
-        <header className="flex h-20 items-center justify-between border-b border-white/10"><a href="/games" className="text-sm font-semibold text-white/55 hover:text-white">← Game lobby</a><a href="/wallet" className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold hover:border-white/30">Wallet</a></header>
+        <header className="flex h-20 items-center justify-between border-b border-white/10"><a href="/games" className="text-sm font-semibold text-white/55 hover:text-white">← RollRush lobby</a><a href="/wallet" className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold hover:border-white/30">Wallet</a></header>
         <section className="py-10 text-center sm:py-14">
           <div className={`mx-auto flex h-44 items-center justify-center sm:h-52 ${loading ? "animate-[diceRoll_0.55s_linear_infinite]" : ""}`}><DieFace value={rollingFace} /></div>
-          <p className="mt-7 text-xs font-bold uppercase tracking-[0.2em] text-white/35">Dice Roll</p><h1 className="mt-2 text-4xl font-black tracking-[-0.03em] sm:text-5xl">Pick a number</h1>
+          <p className="mt-7 text-xs font-bold uppercase tracking-[0.2em] text-white/35">RollRush • Dice Roll</p><h1 className="mt-2 text-4xl font-black tracking-[-0.03em] sm:text-5xl">Pick a number</h1>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-white/45">Choose one face, enter your stake, and watch the die roll before your server-generated result is revealed.</p>
           {loading && <p className="mt-4 text-sm font-bold text-white/70">Rolling the dice…</p>}
         </section>
