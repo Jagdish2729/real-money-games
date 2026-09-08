@@ -5,6 +5,11 @@ import { useEffect, useRef, useState } from "react";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 type Side = "Heads" | "Tails";
 
+function paiseToRupees(value: string | number | bigint | undefined) {
+  const paise = Number(value ?? 0);
+  return Number.isFinite(paise) ? paise / 100 : 0;
+}
+
 export default function CoinTossPage() {
   const [selected, setSelected] = useState<Side | null>(null);
   const [stake, setStake] = useState("100");
@@ -12,7 +17,26 @@ export default function CoinTossPage() {
   const [displaySide, setDisplaySide] = useState<Side>("Heads");
   const [result, setResult] = useState<Side | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [roundWon, setRoundWon] = useState(0);
+  const [roundLost, setRoundLost] = useState(0);
+  const [balanceAfterRound, setBalanceAfterRound] = useState<number | null>(null);
   const tossStartedAt = useRef(0);
+
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) return;
+
+    fetch(`${API_BASE_URL}/wallet`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(data?.message ?? "Unable to load wallet");
+        setWalletBalance(paiseToRupees(data.availablePaise ?? data.balancePaise));
+      })
+      .catch(() => setWalletBalance(null));
+  }, []);
 
   useEffect(() => {
     if (!tossing) return;
@@ -38,6 +62,9 @@ export default function CoinTossPage() {
 
     setError(null);
     setResult(null);
+    setRoundWon(0);
+    setRoundLost(0);
+    setBalanceAfterRound(null);
     setTossing(true);
     tossStartedAt.current = Date.now();
 
@@ -55,10 +82,19 @@ export default function CoinTossPage() {
       if (!response.ok) throw new Error(data?.message ?? "Unable to toss the coin");
 
       const serverResult: Side = data.result === 1 ? "Heads" : "Tails";
+      const finalBalance = paiseToRupees(data.balancePaise);
+      const payout = paiseToRupees(data.payoutPaise);
+      const netWin = data.won ? Math.max(0, payout - amount) : 0;
+      const loss = data.won ? 0 : amount;
       const remaining = Math.max(0, 1800 - (Date.now() - tossStartedAt.current));
+
       window.setTimeout(() => {
         setDisplaySide(serverResult);
         setResult(serverResult);
+        setRoundWon(netWin);
+        setRoundLost(loss);
+        setWalletBalance(finalBalance);
+        setBalanceAfterRound(finalBalance);
         setTossing(false);
       }, remaining);
     } catch (err) {
@@ -93,10 +129,37 @@ export default function CoinTossPage() {
           {tossing && <p className="mt-4 animate-pulse text-sm font-bold text-yellow-200/80">Flipping in the air…</p>}
         </section>
 
+        <section className="mb-4 rounded-[24px] border border-white/10 bg-white/[0.035] p-4 shadow-xl sm:p-5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-yellow-300/15 bg-yellow-300/[0.06] p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-white/40">Current wallet balance</p>
+              <p className="mt-1 text-2xl font-black text-yellow-100">{walletBalance === null ? "—" : `₹${walletBalance.toFixed(2)}`}</p>
+              <p className="mt-1 text-xs text-white/30">Available to play</p>
+            </div>
+            <div className="rounded-2xl bg-black/20 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-white/40">After this round</p>
+              <p className="mt-1 text-2xl font-black">{balanceAfterRound === null ? "—" : `₹${balanceAfterRound.toFixed(2)}`}</p>
+              <p className="mt-1 text-xs text-white/30">Wallet balance after settlement</p>
+            </div>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl bg-emerald-400/[0.06] p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-white/40">Won this round</p>
+              <p className="mt-1 text-lg font-black text-emerald-200">{result ? `+₹${roundWon.toFixed(2)}` : "—"}</p>
+              <p className="mt-1 text-xs text-white/30">Net profit after stake</p>
+            </div>
+            <div className="rounded-2xl bg-red-400/[0.05] p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-white/40">Lost this round</p>
+              <p className="mt-1 text-lg font-black text-red-200">{result ? `₹${roundLost.toFixed(2)}` : "—"}</p>
+              <p className="mt-1 text-xs text-white/30">Stake lost on a wrong prediction</p>
+            </div>
+          </div>
+        </section>
+
         <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5 shadow-2xl sm:p-8">
           <div className="grid gap-3 sm:grid-cols-2">
             {(["Heads", "Tails"] as const).map((side) => (
-              <button key={side} type="button" onClick={() => { setSelected(side); setResult(null); setError(null); }} disabled={tossing} className={`rounded-2xl border px-5 py-6 text-xl font-black transition-all ${selected === side ? "border-yellow-200 bg-yellow-300 text-black shadow-[0_10px_35px_rgba(234,179,8,0.18)]" : "border-white/10 bg-white/[0.04] hover:border-white/25"} disabled:cursor-not-allowed disabled:opacity-60`} aria-pressed={selected === side}>{side}</button>
+              <button key={side} type="button" onClick={() => { setSelected(side); setResult(null); setError(null); setRoundWon(0); setRoundLost(0); setBalanceAfterRound(null); }} disabled={tossing} className={`rounded-2xl border px-5 py-6 text-xl font-black transition-all ${selected === side ? "border-yellow-200 bg-yellow-300 text-black shadow-[0_10px_35px_rgba(234,179,8,0.18)]" : "border-white/10 bg-white/[0.04] hover:border-white/25"} disabled:cursor-not-allowed disabled:opacity-60`} aria-pressed={selected === side}>{side}</button>
             ))}
           </div>
 
@@ -113,7 +176,7 @@ export default function CoinTossPage() {
 
           {error && <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm font-semibold text-red-200">{error}</div>}
 
-          {result && <div className={`mt-5 rounded-2xl border p-5 ${won ? "border-emerald-400/20 bg-emerald-400/10" : "border-white/10 bg-black/20"}`}><p className="text-xs font-bold uppercase tracking-[0.18em] text-white/40">Round result</p><p className="mt-2 text-3xl font-black">{won ? "You won! 🎉" : "Better luck next time"}</p><p className="mt-3 text-sm text-white/55">The coin landed on <span className="font-bold text-white">{result}</span>. {won ? `Your payout is ₹${(Number(stake) * 1.9).toFixed(2)}.` : "Your stake was lost."}</p><button type="button" onClick={() => { setResult(null); setDisplaySide("Heads"); }} className="mt-5 w-full rounded-2xl border border-white/15 px-5 py-3 text-sm font-bold hover:border-white/30">Play another round</button></div>}
+          {result && <div className={`mt-5 rounded-2xl border p-5 ${won ? "border-emerald-400/20 bg-emerald-400/10" : "border-white/10 bg-black/20"}`}><p className="text-xs font-bold uppercase tracking-[0.18em] text-white/40">Round result</p><p className="mt-2 text-3xl font-black">{won ? "You won! 🎉" : "Better luck next time"}</p><p className="mt-3 text-sm text-white/55">The coin landed on <span className="font-bold text-white">{result}</span>. {won ? `Your payout is ₹${(Number(stake) * 1.9).toFixed(2)} and your net profit is ₹${roundWon.toFixed(2)}.` : `You lost ₹${roundLost.toFixed(2)} from your wallet.`}</p><button type="button" onClick={() => { setResult(null); setDisplaySide("Heads"); setRoundWon(0); setRoundLost(0); setBalanceAfterRound(null); }} className="mt-5 w-full rounded-2xl border border-white/15 px-5 py-3 text-sm font-bold hover:border-white/30">Play another round</button></div>}
 
           {!result && <button type="button" onClick={tossCoin} disabled={!selected || tossing} className="mt-5 w-full rounded-2xl bg-white px-5 py-4 text-sm font-black text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-30">{tossing ? "Tossing..." : selected ? "Toss Coin" : "Select Heads or Tails"}</button>}
 
