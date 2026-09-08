@@ -20,6 +20,11 @@ export class WalletController {
     return this.walletService.getTransactions(user.id, Number.isNaN(parsedLimit) ? 50 : parsedLimit);
   }
 
+  @Get("deposit-limit")
+  getDepositLimit(@CurrentUser() user: AuthUser) {
+    return this.walletService.getDepositLimit(user.id);
+  }
+
   @Post("deposits")
   createDeposit(
     @CurrentUser() user: AuthUser,
