@@ -2,6 +2,8 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 import { randomInt, randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma.service";
 
+type DicePrediction = "MORE" | "LESS" | "EQUALS";
+
 @Injectable()
 export class GameService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
@@ -13,14 +15,38 @@ export class GameService {
     return BigInt(stakePaise);
   }
 
-  async playDice(userId: string, prediction: number, stakeRupees: number) {
-    if (!Number.isInteger(prediction) || prediction < 1 || prediction > 6) throw new BadRequestException("Prediction must be a number from 1 to 6");
+  async playDice(userId: string, prediction: DicePrediction, stakeRupees: number) {
+    if (prediction !== "MORE" && prediction !== "LESS" && prediction !== "EQUALS") {
+      throw new BadRequestException("Prediction must be MORE, LESS, or EQUALS");
+    }
+
     const stake = this.validateStake(stakeRupees);
-    const result = randomInt(1, 7);
-    const won = result === prediction;
-    const payoutPaise = won ? (stake * 25n) / 10n : 0n;
+    const dieOne = randomInt(1, 7);
+    const dieTwo = randomInt(1, 7);
+    const sum = dieOne + dieTwo;
+    const won = prediction === "MORE" ? sum > 7 : prediction === "LESS" ? sum < 7 : sum === 7;
+    const payoutPaise = won
+      ? prediction === "EQUALS" ? (stake * 55n) / 10n : (stake * 225n) / 100n
+      : 0n;
+
+    // Store prediction as 1/2/3 for compatibility with the existing integer Game model.
+    // Store the two dice as a compact result: dieOne*100 + dieTwo (e.g. 406 means 4 + 6).
+    const predictionValue = prediction === "MORE" ? 1 : prediction === "LESS" ? 2 : 3;
+    const resultValue = dieOne * 100 + dieTwo;
     const referenceId = `game:dice:${randomUUID()}`;
-    return this.settleGame(userId, "DICE", prediction, result, stake, payoutPaise, won, referenceId, `Dice prediction ${prediction}`, `Dice result ${result}`);
+
+    return this.settleGame(
+      userId,
+      "DICE",
+      predictionValue,
+      resultValue,
+      stake,
+      payoutPaise,
+      won,
+      referenceId,
+      `Two dice prediction ${prediction}`,
+      `Two dice result ${dieOne} + ${dieTwo} = ${sum}`,
+    );
   }
 
   async playCoinToss(userId: string, prediction: "HEADS" | "TAILS", stakeRupees: number) {
