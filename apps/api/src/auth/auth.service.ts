@@ -2,6 +2,7 @@ import { Inject, Injectable, HttpException, HttpStatus, UnauthorizedException } 
 import { createHash, randomInt } from "node:crypto";
 import { PrismaService } from "../prisma.service";
 import { TokenService } from "./token.service";
+import { OtpSmsService } from "./otp-sms.service";
 
 const OTP_LENGTH = 6;
 const OTP_TTL_MINUTES = 5;
@@ -13,6 +14,7 @@ export class AuthService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(TokenService) private readonly tokenService: TokenService,
+    @Inject(OtpSmsService) private readonly otpSmsService: OtpSmsService,
   ) {}
 
   async requestOtp(phoneNumber: string) {
@@ -40,8 +42,10 @@ export class AuthService {
       data: { phoneNumber: normalizedPhone, codeHash, expiresAt },
     });
 
+    await this.otpSmsService.sendOtp(normalizedPhone, code);
+
     return {
-      message: "OTP generated successfully",
+      message: "OTP sent successfully",
       expiresInSeconds: OTP_TTL_MINUTES * 60,
       ...(process.env.NODE_ENV !== "production" ? { developmentOtp: code } : {}),
     };
