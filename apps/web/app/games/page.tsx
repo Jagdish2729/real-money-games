@@ -24,7 +24,7 @@ export default function GamesPage() {
         <header className="flex h-20 items-center justify-between border-b border-white/10">
           <a href="/" className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-lg font-black text-black">R</span>
-            <span className="text-base font-bold tracking-tight">REAL MONEY GAMES</span>
+            <span className="text-base font-bold tracking-tight">ROLLRUSH</span>
           </a>
           <div className="flex items-center gap-3">
             <a href="/games/history" className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold hover:border-white/30">History</a>
@@ -33,10 +33,10 @@ export default function GamesPage() {
         </header>
 
         <section className="py-12 sm:py-16">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">Game lobby</p>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">RollRush game lobby</p>
           <h1 className="mt-3 text-4xl font-black tracking-[-0.03em] sm:text-5xl">Choose your game</h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-white/50">
-            Every round is settled by the server. Payout rules are shown before you play and wallet changes are recorded in the transaction ledger.
+            Roll. Toss. Win. Every round is settled by the server. Payout rules are shown before you play and wallet changes are recorded in the transaction ledger.
           </p>
         </section>
 
