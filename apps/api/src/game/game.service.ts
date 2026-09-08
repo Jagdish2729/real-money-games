@@ -29,8 +29,6 @@ export class GameService {
       ? prediction === "EQUALS" ? (stake * 55n) / 10n : (stake * 225n) / 100n
       : 0n;
 
-    // Store prediction as 1/2/3 for compatibility with the existing integer Game model.
-    // Store the two dice as a compact result: dieOne*100 + dieTwo (e.g. 406 means 4 + 6).
     const predictionValue = prediction === "MORE" ? 1 : prediction === "LESS" ? 2 : 3;
     const resultValue = dieOne * 100 + dieTwo;
     const referenceId = `game:dice:${randomUUID()}`;
@@ -79,20 +77,28 @@ export class GameService {
       const availablePaise = wallet.balancePaise - wallet.lockedPaise;
       if (availablePaise < stake) throw new BadRequestException("Insufficient wallet balance");
 
+      // Consume deposited funds first. Only the portion of a stake that exceeds
+      // the non-withdrawable balance consumes existing game winnings.
+      const depositedAvailablePaise = wallet.balancePaise - wallet.withdrawablePaise;
+      const winningsUsedPaise = stake > depositedAvailablePaise ? stake - depositedAvailablePaise : 0n;
+      const newWithdrawablePaise = wallet.withdrawablePaise - winningsUsedPaise;
+
       const balanceBeforeStake = wallet.balancePaise;
       const balanceAfterStake = balanceBeforeStake - stake;
-      await tx.wallet.update({ where: { id: wallet.id }, data: { balancePaise: balanceAfterStake } });
+      await tx.wallet.update({ where: { id: wallet.id }, data: { balancePaise: balanceAfterStake, withdrawablePaise: newWithdrawablePaise } });
       await tx.walletTransaction.create({ data: { walletId: wallet.id, userId, type: "GAME_STAKE", status: "COMPLETED", amountPaise: stake, balanceBefore: balanceBeforeStake, balanceAfter: balanceAfterStake, referenceId: `${referenceId}:stake`, description: stakeDescription } });
 
       let finalBalance = balanceAfterStake;
+      let finalWithdrawablePaise = newWithdrawablePaise;
       if (won) {
         finalBalance += payoutPaise;
-        await tx.wallet.update({ where: { id: wallet.id }, data: { balancePaise: finalBalance } });
+        finalWithdrawablePaise += payoutPaise;
+        await tx.wallet.update({ where: { id: wallet.id }, data: { balancePaise: finalBalance, withdrawablePaise: finalWithdrawablePaise } });
         await tx.walletTransaction.create({ data: { walletId: wallet.id, userId, type: "GAME_WIN", status: "COMPLETED", amountPaise: payoutPaise, balanceBefore: balanceAfterStake, balanceAfter: finalBalance, referenceId: `${referenceId}:win`, description: winDescription } });
       }
 
       const game = await tx.game.create({ data: { userId, type, status: "RESOLVED", prediction, result, stakePaise: stake, payoutPaise, referenceId } });
-      return { gameId: game.id, type, prediction, result, stakePaise: stake.toString(), payoutPaise: payoutPaise.toString(), won, balancePaise: finalBalance.toString() };
+      return { gameId: game.id, type, prediction, result, stakePaise: stake.toString(), payoutPaise: payoutPaise.toString(), won, balancePaise: finalBalance.toString(), withdrawablePaise: finalWithdrawablePaise.toString() };
     });
   }
 
