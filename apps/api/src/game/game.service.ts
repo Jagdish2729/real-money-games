@@ -6,18 +6,47 @@ import { PrismaService } from "../prisma.service";
 export class GameService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async playDice(userId: string, prediction: number, stakeRupees: number) {
-    if (!Number.isInteger(prediction) || prediction < 1 || prediction > 6) throw new BadRequestException("Prediction must be a number from 1 to 6");
+  private validateStake(stakeRupees: number) {
     if (!Number.isFinite(stakeRupees) || stakeRupees <= 0) throw new BadRequestException("Stake must be greater than zero");
     const stakePaise = Math.round(stakeRupees * 100);
     if (!Number.isSafeInteger(stakePaise) || stakePaise <= 0) throw new BadRequestException("Invalid stake amount");
+    return BigInt(stakePaise);
+  }
 
+  async playDice(userId: string, prediction: number, stakeRupees: number) {
+    if (!Number.isInteger(prediction) || prediction < 1 || prediction > 6) throw new BadRequestException("Prediction must be a number from 1 to 6");
+    const stake = this.validateStake(stakeRupees);
     const result = randomInt(1, 7);
     const won = result === prediction;
-    const stake = BigInt(stakePaise);
     const payoutPaise = won ? (stake * 25n) / 10n : 0n;
     const referenceId = `game:dice:${randomUUID()}`;
+    return this.settleGame(userId, "DICE", prediction, result, stake, payoutPaise, won, referenceId, `Dice prediction ${prediction}`, `Dice result ${result}`);
+  }
 
+  async playCoinToss(userId: string, prediction: "HEADS" | "TAILS", stakeRupees: number) {
+    if (prediction !== "HEADS" && prediction !== "TAILS") throw new BadRequestException("Prediction must be HEADS or TAILS");
+    const stake = this.validateStake(stakeRupees);
+    const result = randomInt(0, 2) === 0 ? "HEADS" : "TAILS";
+    const resultValue = result === "HEADS" ? 1 : 2;
+    const predictionValue = prediction === "HEADS" ? 1 : 2;
+    const won = result === prediction;
+    const payoutPaise = won ? (stake * 19n) / 10n : 0n;
+    const referenceId = `game:coin:${randomUUID()}`;
+    return this.settleGame(userId, "COIN_TOSS", predictionValue, resultValue, stake, payoutPaise, won, referenceId, `Coin toss prediction ${prediction}`, `Coin toss result ${result}`);
+  }
+
+  private async settleGame(
+    userId: string,
+    type: "DICE" | "COIN_TOSS",
+    prediction: number,
+    result: number,
+    stake: bigint,
+    payoutPaise: bigint,
+    won: boolean,
+    referenceId: string,
+    stakeDescription: string,
+    winDescription: string,
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const wallet = await tx.wallet.findUnique({ where: { userId } });
       if (!wallet) throw new NotFoundException("Wallet not found");
@@ -27,17 +56,17 @@ export class GameService {
       const balanceBeforeStake = wallet.balancePaise;
       const balanceAfterStake = balanceBeforeStake - stake;
       await tx.wallet.update({ where: { id: wallet.id }, data: { balancePaise: balanceAfterStake } });
-      await tx.walletTransaction.create({ data: { walletId: wallet.id, userId, type: "GAME_STAKE", status: "COMPLETED", amountPaise: stake, balanceBefore: balanceBeforeStake, balanceAfter: balanceAfterStake, referenceId: `${referenceId}:stake`, description: `Dice stake - prediction ${prediction}` } });
+      await tx.walletTransaction.create({ data: { walletId: wallet.id, userId, type: "GAME_STAKE", status: "COMPLETED", amountPaise: stake, balanceBefore: balanceBeforeStake, balanceAfter: balanceAfterStake, referenceId: `${referenceId}:stake`, description: stakeDescription } });
 
       let finalBalance = balanceAfterStake;
       if (won) {
         finalBalance += payoutPaise;
         await tx.wallet.update({ where: { id: wallet.id }, data: { balancePaise: finalBalance } });
-        await tx.walletTransaction.create({ data: { walletId: wallet.id, userId, type: "GAME_WIN", status: "COMPLETED", amountPaise: payoutPaise, balanceBefore: balanceAfterStake, balanceAfter: finalBalance, referenceId: `${referenceId}:win`, description: `Dice win - result ${result}` } });
+        await tx.walletTransaction.create({ data: { walletId: wallet.id, userId, type: "GAME_WIN", status: "COMPLETED", amountPaise: payoutPaise, balanceBefore: balanceAfterStake, balanceAfter: finalBalance, referenceId: `${referenceId}:win`, description: winDescription } });
       }
 
-      const game = await tx.game.create({ data: { userId, type: "DICE", status: "RESOLVED", prediction, result, stakePaise: stake, payoutPaise, referenceId } });
-      return { gameId: game.id, prediction, result, stakePaise: stake.toString(), payoutPaise: payoutPaise.toString(), won, balancePaise: finalBalance.toString() };
+      const game = await tx.game.create({ data: { userId, type, status: "RESOLVED", prediction, result, stakePaise: stake, payoutPaise, referenceId } });
+      return { gameId: game.id, type, prediction, result, stakePaise: stake.toString(), payoutPaise: payoutPaise.toString(), won, balancePaise: finalBalance.toString() };
     });
   }
 
