@@ -1,113 +1,15 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+type Wallet={availablePaise:string;lockedPaise:string;balancePaise:string};
+type Withdrawal={id:string;amountPaise:string;upiId:string;status:string;rejectionReason:string|null;createdAt:string};
+const money=(p:string)=>`₹${(Number(p)/100).toFixed(2)}`;
 
-export default function WithdrawPage() {
-  const [amount, setAmount] = useState("");
-  const [upiId, setUpiId] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!amount || !upiId.trim()) return;
-    setSubmitted(true);
-  }
-
-  return (
-    <main className="min-h-screen bg-[#07080b] text-white">
-      <div className="mx-auto max-w-3xl px-5 pb-12 sm:px-8">
-        <header className="flex h-20 items-center justify-between border-b border-white/10">
-          <a href="/" className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-lg font-black text-black">R</span>
-            <span className="text-base font-bold tracking-tight">REAL MONEY GAMES</span>
-          </a>
-          <a href="/wallet" className="text-sm font-semibold text-white/55 hover:text-white">Back to wallet</a>
-        </header>
-
-        <section className="py-10 sm:py-14">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">Wallet / Withdraw</p>
-          <h1 className="mt-2 text-4xl font-black tracking-[-0.03em] sm:text-5xl">Withdraw funds</h1>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-white/45 sm:text-base">
-            Request a withdrawal to your verified UPI ID. Your request will be reviewed and processed separately from your wallet balance.
-          </p>
-        </section>
-
-        {submitted ? (
-          <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-black text-black">✓</div>
-            <h2 className="mt-6 text-2xl font-bold">Withdrawal request submitted</h2>
-            <p className="mt-3 text-sm leading-6 text-white/45">
-              Your request is now pending review. Funds are reserved by the server when the withdrawal is accepted.
-            </p>
-            <div className="mt-6 flex gap-3">
-              <a href="/wallet" className="rounded-xl bg-white px-4 py-3 text-sm font-bold text-black">View wallet</a>
-              <button onClick={() => setSubmitted(false)} className="rounded-xl border border-white/15 px-4 py-3 text-sm font-bold hover:border-white/30">
-                New request
-              </button>
-            </div>
-          </section>
-        ) : (
-          <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
-            <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-8">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/35">Withdrawal details</p>
-              <h2 className="mt-2 text-xl font-bold">Request payout</h2>
-
-              <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-                <label className="block">
-                  <span className="text-sm font-semibold">Amount</span>
-                  <div className="mt-2 flex items-center rounded-xl border border-white/10 bg-black/20 px-4 focus-within:border-white/30">
-                    <span className="text-white/45">₹</span>
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={amount}
-                      onChange={(event) => setAmount(event.target.value)}
-                      placeholder="Enter amount"
-                      className="w-full bg-transparent px-3 py-3 text-sm outline-none placeholder:text-white/25"
-                      required
-                    />
-                  </div>
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-semibold">Verified UPI ID</span>
-                  <input
-                    type="text"
-                    value={upiId}
-                    onChange={(event) => setUpiId(event.target.value)}
-                    placeholder="example@upi"
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm outline-none placeholder:text-white/25 focus:border-white/30"
-                    required
-                  />
-                  <span className="mt-2 block text-xs text-white/30">Use the UPI ID associated with your verified account.</span>
-                </label>
-
-                <div className="rounded-2xl border border-white/10 bg-black/15 p-4 text-xs leading-5 text-white/40">
-                  Only your available balance can be requested. A pending withdrawal will not be available for another withdrawal request.
-                </div>
-
-                <button type="submit" className="w-full rounded-xl bg-white px-4 py-3.5 text-sm font-bold text-black hover:bg-white/90">
-                  Submit withdrawal request
-                </button>
-              </form>
-            </section>
-
-            <aside className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-8">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/35">Current wallet</p>
-              <p className="mt-2 text-4xl font-black">₹0.00</p>
-              <p className="mt-2 text-sm text-white/40">Available to withdraw</p>
-              <div className="mt-7 space-y-3 border-t border-white/10 pt-5 text-sm">
-                <div className="flex justify-between"><span className="text-white/40">In play</span><span>₹0.00</span></div>
-                <div className="flex justify-between"><span className="text-white/40">Pending</span><span>₹0.00</span></div>
-              </div>
-              <div className="mt-6 rounded-2xl border border-white/10 bg-black/15 p-4 text-xs leading-5 text-white/35">
-                Withdrawal status will be visible in transaction history once the backend is connected.
-              </div>
-            </aside>
-          </div>
-        )}
-      </div>
-    </main>
-  );
+export default function WithdrawPage(){
+ const[wallet,setWallet]=useState<Wallet|null>(null);const[withdrawals,setWithdrawals]=useState<Withdrawal[]>([]);const[amount,setAmount]=useState("");const[upiId,setUpiId]=useState("");const[loading,setLoading]=useState(true);const[submitting,setSubmitting]=useState(false);const[message,setMessage]=useState("");const[error,setError]=useState("");
+ async function load(){const token=localStorage.getItem("accessToken");if(!token){window.location.href="/login";return;}try{const headers={Authorization:`Bearer ${token}`};const[w,r]=await Promise.all([fetch(`${API_BASE_URL}/wallet`,{headers}),fetch(`${API_BASE_URL}/wallet/withdrawals`,{headers})]);const wd=await w.json();const rd=await r.json();if(!w.ok)throw new Error(wd.message||"Unable to load wallet");if(!r.ok)throw new Error(rd.message||"Unable to load withdrawals");setWallet(wd);setWithdrawals(rd);}catch(e){setError(e instanceof Error?e.message:"Unable to load withdrawal page");}finally{setLoading(false);}}
+ useEffect(()=>{void load();},[]);
+ async function submit(e:FormEvent){e.preventDefault();setError("");setMessage("");const value=Number(amount);if(!Number.isSafeInteger(value)||value<10){setError("Minimum withdrawal is ₹10.");return;}const token=localStorage.getItem("accessToken");if(!token){window.location.href="/login";return;}setSubmitting(true);try{const r=await fetch(`${API_BASE_URL}/wallet/withdrawals`,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({amountRupees:value,upiId:upiId.trim()})});const d=await r.json();if(!r.ok)throw new Error(d.message||"Unable to submit withdrawal");setMessage("Withdrawal request submitted. Your funds are locked until the request is approved or rejected.");setAmount("");await load();}catch(e){setError(e instanceof Error?e.message:"Unable to submit withdrawal");}finally{setSubmitting(false);}}
+ return <main className="min-h-screen bg-[#07080b] text-white"><div className="mx-auto max-w-5xl px-5 pb-12 sm:px-8"><header className="flex h-20 items-center justify-between border-b border-white/10"><a href="/wallet" className="text-sm font-semibold text-white/55 hover:text-white">← Wallet</a><a href="/games" className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold hover:border-white/30">Games</a></header><section className="py-10 sm:py-14"><p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">RollRush wallet</p><h1 className="mt-2 text-4xl font-black tracking-[-0.03em] sm:text-5xl">Withdraw money</h1><p className="mt-4 max-w-2xl text-sm leading-6 text-white/45 sm:text-base">Request a payout to your UPI ID. Requests are reviewed and paid manually during Beta.</p></section><section className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]"><form onSubmit={submit} className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-8"><div className="rounded-2xl bg-black/20 p-5"><p className="text-xs uppercase tracking-[0.16em] text-white/35">Available balance</p><p className="mt-2 text-4xl font-black">{loading?"Loading...":money(wallet?.availablePaise||"0")}</p>{wallet&&Number(wallet.lockedPaise)>0&&<p className="mt-2 text-xs text-white/40">{money(wallet.lockedPaise)} reserved for pending requests.</p>}</div><label className="mt-6 block"><span className="mb-2 block text-sm font-semibold text-white/70">Withdrawal amount</span><div className="flex items-center overflow-hidden rounded-2xl border border-white/10 bg-[#0c0e13] focus-within:border-white/30"><span className="border-r border-white/10 px-4 text-sm font-semibold text-white/50">₹</span><input required type="number" min="10" step="1" inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="Enter amount" disabled={submitting} className="min-w-0 flex-1 bg-transparent px-4 py-4 text-base outline-none placeholder:text-white/20"/></div><span className="mt-2 block text-xs text-white/30">Minimum withdrawal: ₹10</span></label><label className="mt-5 block"><span className="mb-2 block text-sm font-semibold text-white/70">UPI ID</span><input required value={upiId} onChange={e=>setUpiId(e.target.value)} placeholder="yourname@upi" disabled={submitting} className="w-full rounded-2xl border border-white/10 bg-[#0c0e13] px-4 py-4 text-base outline-none placeholder:text-white/20 focus:border-white/30"/><span className="mt-2 block text-xs text-white/30">Double-check the UPI ID before submitting.</span></label>{error&&<p className="mt-5 rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-300">{error}</p>}{message&&<p className="mt-5 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white/70">{message}</p>}<button type="submit" disabled={submitting||loading||!amount||!upiId} className="mt-5 w-full rounded-2xl bg-white px-5 py-4 text-sm font-black text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-30">{submitting?"Submitting...":"Request withdrawal"}</button><p className="mt-4 text-center text-xs leading-5 text-white/30">Your requested amount is reserved immediately and cannot be used in games while pending.</p></form><section className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-8"><p className="text-xs font-bold uppercase tracking-[0.16em] text-white/35">Withdrawal history</p><h2 className="mt-2 text-xl font-bold">Recent requests</h2><div className="mt-5 space-y-3">{withdrawals.length===0?<div className="rounded-2xl bg-black/15 p-5 text-sm text-white/40">No withdrawal requests yet.</div>:withdrawals.map(w=><div key={w.id} className="rounded-2xl border border-white/10 bg-black/15 p-4"><div className="flex items-center justify-between gap-3"><div><p className="font-bold">{money(w.amountPaise)}</p><p className="mt-1 text-xs text-white/35">{w.upiId}</p></div><span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-bold">{w.status}</span></div><p className="mt-2 text-xs text-white/30">{new Date(w.createdAt).toLocaleString()}</p>{w.rejectionReason&&<p className="mt-2 text-xs text-red-300">Reason: {w.rejectionReason}</p>}</div>)}</div></section></section></div></main>;
 }
