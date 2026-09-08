@@ -1,0 +1,1 @@
+ALTER TABLE "Wallet" ADD COLUMN "withdrawablePaise" BIGINT NOT NULL DEFAULT 0;
