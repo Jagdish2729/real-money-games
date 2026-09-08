@@ -10,10 +10,11 @@ export class WalletService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async getWallet(userId: string) {
-    const wallet = await this.prisma.wallet.findUnique({ where: { userId }, select: { id: true, balancePaise: true, lockedPaise: true } });
+    const wallet = await this.prisma.wallet.findUnique({ where: { userId }, select: { id: true, balancePaise: true, lockedPaise: true, withdrawablePaise: true } });
     if (!wallet) throw new BadRequestException("Wallet not found");
     const availablePaise = wallet.balancePaise - wallet.lockedPaise;
-    return { id: wallet.id, balancePaise: wallet.balancePaise.toString(), lockedPaise: wallet.lockedPaise.toString(), availablePaise: availablePaise.toString() };
+    const withdrawableAvailablePaise = wallet.withdrawablePaise - wallet.lockedPaise;
+    return { id: wallet.id, balancePaise: wallet.balancePaise.toString(), lockedPaise: wallet.lockedPaise.toString(), availablePaise: availablePaise.toString(), withdrawablePaise: wallet.withdrawablePaise.toString(), withdrawableAvailablePaise: withdrawableAvailablePaise.toString() };
   }
 
   async getTransactions(userId: string, limit = 50) {
@@ -59,13 +60,13 @@ export class WalletService {
     return this.prisma.$transaction(async (tx) => {
       const wallet = await tx.wallet.findUnique({ where: { userId } });
       if (!wallet) throw new NotFoundException("Wallet not found");
-      const availablePaise = wallet.balancePaise - wallet.lockedPaise;
-      if (availablePaise < amountPaise) throw new BadRequestException("Insufficient available wallet balance");
+      const withdrawableAvailablePaise = wallet.withdrawablePaise - wallet.lockedPaise;
+      if (withdrawableAvailablePaise < amountPaise) throw new BadRequestException("Only game winnings can be withdrawn");
 
       const withdrawal = await tx.withdrawal.create({ data: { userId, amountPaise, upiId: normalizedUpi, status: "PENDING" }, select: { id: true, amountPaise: true, upiId: true, status: true, createdAt: true } });
       await tx.wallet.update({ where: { id: wallet.id }, data: { lockedPaise: wallet.lockedPaise + amountPaise } });
       await tx.walletTransaction.create({ data: { walletId: wallet.id, userId, type: "WITHDRAWAL", status: "PENDING", amountPaise, balanceBefore: wallet.balancePaise, balanceAfter: wallet.balancePaise, referenceId: `withdrawal:${withdrawal.id}`, description: `Withdrawal requested to ${normalizedUpi}` } });
-      return { message: "Withdrawal request submitted successfully", withdrawal: { ...withdrawal, amountPaise: withdrawal.amountPaise.toString() }, availablePaise: (availablePaise - amountPaise).toString() };
+      return { message: "Withdrawal request submitted successfully", withdrawal: { ...withdrawal, amountPaise: withdrawal.amountPaise.toString() }, availablePaise: (wallet.balancePaise - wallet.lockedPaise - amountPaise).toString(), withdrawableAvailablePaise: (withdrawableAvailablePaise - amountPaise).toString() };
     });
   }
 
