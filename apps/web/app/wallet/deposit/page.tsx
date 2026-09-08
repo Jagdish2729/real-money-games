@@ -3,94 +3,32 @@
 import { FormEvent, useEffect, useState } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+type PaymentSettings = { upiId: string; qrImageUrl: string | null; instructions: string };
 
 export default function DepositPage() {
-  const [amount, setAmount] = useState("");
-  const [utr, setUtr] = useState("");
-  const [proofFile, setProofFile] = useState<File | null>(null);
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [remainingToday, setRemainingToday] = useState<number | null>(null);
+  const [amount, setAmount] = useState(""); const [utr, setUtr] = useState(""); const [proofFile, setProofFile] = useState<File | null>(null);
+  const [submitted, setSubmitted] = useState(false); const [loading, setLoading] = useState(false); const [error, setError] = useState(""); const [remainingToday, setRemainingToday] = useState<number | null>(null);
+  const [payment, setPayment] = useState<PaymentSettings | null>(null);
 
-  async function loadDepositLimit() {
-    const token = localStorage.getItem("accessToken");
-    if (!token) return;
-    try {
-      const response = await fetch(`${API_BASE_URL}/wallet/deposit-limit`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) return;
-      const data = await response.json();
-      setRemainingToday(Number(data.remainingToday));
-    } catch {
-      // The deposit form remains usable; the server enforces the limit.
-    }
-  }
-
-  useEffect(() => { void loadDepositLimit(); }, []);
+  async function loadDepositLimit() { const token = localStorage.getItem("accessToken"); if (!token) return; try { const response = await fetch(`${API_BASE_URL}/wallet/deposit-limit`, { headers: { Authorization: `Bearer ${token}` } }); if (!response.ok) return; const data = await response.json(); setRemainingToday(Number(data.remainingToday)); } catch {} }
+  useEffect(() => { void loadDepositLimit(); fetch(`${API_BASE_URL}/payment-settings`).then(r => r.json()).then(setPayment).catch(() => setPayment(null)); }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    const token = localStorage.getItem("accessToken");
-    if (!token) { setError("Please login before submitting a deposit request."); return; }
-    if (remainingToday === 0) { setError("You have reached today's deposit limit of 5 requests."); return; }
-    if (!amount || Number(amount) <= 0 || !utr.trim()) return;
-
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/wallet/deposits`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amountRupees: Number(amount), utr: utr.trim() }),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.message || "Unable to submit deposit request");
-      setRemainingToday(Number(data.remainingToday));
-      setSubmitted(true); setAmount(""); setUtr(""); setProofFile(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to submit deposit request");
-      await loadDepositLimit();
-    } finally { setLoading(false); }
+    event.preventDefault(); setError(""); const token = localStorage.getItem("accessToken"); if (!token) { setError("Please login before submitting a deposit request."); return; }
+    if (remainingToday === 0) { setError("You have reached today's deposit limit of 5 requests."); return; } if (!amount || Number(amount) <= 0 || !utr.trim()) return; setLoading(true);
+    try { const response = await fetch(`${API_BASE_URL}/wallet/deposits`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ amountRupees: Number(amount), utr: utr.trim() }) }); const data = await response.json().catch(() => null); if (!response.ok) throw new Error(data?.message || "Unable to submit deposit request"); setRemainingToday(Number(data.remainingToday)); setSubmitted(true); setAmount(""); setUtr(""); setProofFile(null); }
+    catch (err) { setError(err instanceof Error ? err.message : "Unable to submit deposit request"); await loadDepositLimit(); } finally { setLoading(false); }
   }
 
-  return (
-    <main className="min-h-screen bg-[#07080b] text-white">
-      <div className="mx-auto max-w-3xl px-5 pb-12 sm:px-8">
-        <header className="flex h-20 items-center justify-between border-b border-white/10">
-          <a href="/" className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-lg font-black text-black">R</span><span className="text-base font-bold tracking-tight">ROLLRUSH</span></a>
-          <a href="/wallet" className="text-sm font-semibold text-white/55 hover:text-white">Back to wallet</a>
-        </header>
+  const qrUrl = payment?.qrImageUrl || (payment?.upiId ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`upi://pay?pa=${payment.upiId}&pn=RollRush`)}` : "");
 
-        <section className="py-10 sm:py-14"><p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">Wallet / Deposit</p><h1 className="mt-2 text-4xl font-black tracking-[-0.03em] sm:text-5xl">Add money</h1><p className="mt-4 max-w-2xl text-sm leading-6 text-white/45 sm:text-base">Send your payment using the displayed payment method, then submit the transaction reference for manual verification.</p></section>
-
-        <div className="mb-5 rounded-2xl border border-white/10 bg-white/[0.035] px-5 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><p className="text-sm font-bold">Daily deposit limit</p><p className="mt-1 text-xs text-white/40">Maximum 5 deposit requests per day.</p></div>
-            <div className="rounded-xl bg-white px-4 py-2 text-sm font-black text-black">
-              {remainingToday === null ? "Checking..." : remainingToday > 0 ? `${remainingToday} deposit${remainingToday === 1 ? "" : "s"} left` : "No deposits left today"}
-            </div>
-          </div>
-        </div>
-
-        {submitted ? (
-          <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-8"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-black text-black">✓</div><h2 className="mt-6 text-2xl font-bold">Deposit request submitted</h2><p className="mt-3 text-sm leading-6 text-white/45">Your request is pending manual verification. The wallet balance will be updated only after the payment is approved.</p><div className="mt-6 rounded-2xl border border-white/10 bg-black/15 p-4 text-sm font-semibold">{remainingToday === 0 ? "You have used all 5 deposit requests for today." : `${remainingToday} deposit${remainingToday === 1 ? "" : "s"} left today.`}</div><div className="mt-6 flex gap-3"><a href="/wallet" className="rounded-xl bg-white px-4 py-3 text-sm font-bold text-black">View wallet</a><button disabled={remainingToday === 0} onClick={() => setSubmitted(false)} className="rounded-xl border border-white/15 px-4 py-3 text-sm font-bold hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-40">Submit another request</button></div></section>
-        ) : (
-          <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr]">
-            <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-8"><p className="text-xs font-bold uppercase tracking-[0.16em] text-white/35">Step 1</p><h2 className="mt-2 text-xl font-bold">Make your payment</h2><div className="mt-6 rounded-2xl border border-dashed border-white/15 bg-black/20 p-6 text-center"><div className="mx-auto flex h-36 w-36 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-xs text-white/35">PAYMENT QR</div><p className="mt-4 text-sm font-semibold">UPI payment</p><p className="mt-1 text-xs text-white/35">Payment details will be configured by the operator.</p></div><div className="mt-5 rounded-2xl border border-white/10 bg-black/15 p-4 text-xs leading-5 text-white/45">Do not submit a request until your payment has been completed. Keep the transaction reference available.</div></section>
-
-            <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-8"><p className="text-xs font-bold uppercase tracking-[0.16em] text-white/35">Step 2</p><h2 className="mt-2 text-xl font-bold">Submit payment details</h2><form onSubmit={handleSubmit} className="mt-6 space-y-5">
-              <label className="block"><span className="text-sm font-semibold">Amount</span><div className="mt-2 flex items-center rounded-xl border border-white/10 bg-black/20 px-4 focus-within:border-white/30"><span className="text-white/45">₹</span><input disabled={remainingToday === 0} type="number" min="1" step="1" value={amount} onChange={event => setAmount(event.target.value)} placeholder="Enter amount" className="w-full bg-transparent px-3 py-3 text-sm outline-none placeholder:text-white/25 disabled:cursor-not-allowed disabled:opacity-50" required /></div></label>
-              <label className="block"><span className="text-sm font-semibold">UTR / transaction reference</span><input disabled={remainingToday === 0} value={utr} onChange={event => setUtr(event.target.value)} placeholder="Enter payment reference" className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm outline-none placeholder:text-white/25 focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50" required /></label>
-              <label className="block"><span className="text-sm font-semibold">Payment proof</span><input disabled={remainingToday === 0} type="file" accept="image/*" onChange={event => setProofFile(event.target.files?.[0] ?? null)} className="mt-2 block w-full rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/55 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-xs file:font-bold file:text-black disabled:cursor-not-allowed disabled:opacity-50" /><span className="mt-2 block text-xs text-white/30">{proofFile ? `${proofFile.name} selected` : "Proof upload will be connected to secure storage next."}</span></label>
-              {error && <div className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">{error}</div>}
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-4 text-xs leading-5 text-white/40">Deposits are credited only after admin verification. You can submit up to 5 deposit requests per day.</div>
-              <button disabled={loading || remainingToday === 0} type="submit" className="w-full rounded-xl bg-white px-4 py-3.5 text-sm font-bold text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50">{remainingToday === 0 ? "Daily limit reached" : loading ? "Submitting..." : "Submit deposit request"}</button>
-            </form></section>
-          </div>
-        )}
-      </div>
-    </main>
-  );
+  return <main className="min-h-screen bg-[#07080b] text-white"><div className="mx-auto max-w-3xl px-5 pb-12 sm:px-8">
+    <header className="flex h-20 items-center justify-between border-b border-white/10"><a href="/" className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-lg font-black text-black">R</span><span className="text-base font-bold tracking-tight">ROLLRUSH</span></a><a href="/wallet" className="text-sm font-semibold text-white/55 hover:text-white">Back to wallet</a></header>
+    <section className="py-10 sm:py-14"><p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">Wallet / Deposit</p><h1 className="mt-2 text-4xl font-black tracking-[-0.03em] sm:text-5xl">Add money</h1><p className="mt-4 max-w-2xl text-sm leading-6 text-white/45 sm:text-base">Send your payment using the displayed payment method, then submit the transaction reference for manual verification.</p></section>
+    <div className="mb-5 rounded-2xl border border-white/10 bg-white/[0.035] px-5 py-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold">Daily deposit limit</p><p className="mt-1 text-xs text-white/40">Maximum 5 deposit requests per day.</p></div><div className="rounded-xl bg-white px-4 py-2 text-sm font-black text-black">{remainingToday === null ? "Checking..." : remainingToday > 0 ? `${remainingToday} deposit${remainingToday === 1 ? "" : "s"} left` : "No deposits left today"}</div></div></div>
+    {submitted ? <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-8"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-black text-black">✓</div><h2 className="mt-6 text-2xl font-bold">Deposit request submitted</h2><p className="mt-3 text-sm leading-6 text-white/45">Your request is pending manual verification. The wallet balance will be updated only after the payment is approved.</p><div className="mt-6 rounded-2xl border border-white/10 bg-black/15 p-4 text-sm font-semibold">{remainingToday === 0 ? "You have used all 5 deposit requests for today." : `${remainingToday} deposit${remainingToday === 1 ? "" : "s"} left today.`}</div><div className="mt-6 flex gap-3"><a href="/wallet" className="rounded-xl bg-white px-4 py-3 text-sm font-bold text-black">View wallet</a><button disabled={remainingToday === 0} onClick={() => setSubmitted(false)} className="rounded-xl border border-white/15 px-4 py-3 text-sm font-bold hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-40">Submit another request</button></div></section> : <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr]">
+      <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-8"><p className="text-xs font-bold uppercase tracking-[0.16em] text-white/35">Step 1</p><h2 className="mt-2 text-xl font-bold">Make your payment</h2><div className="mt-6 rounded-2xl border border-dashed border-white/15 bg-black/20 p-6 text-center">{qrUrl ? <img src={qrUrl} alt="RollRush UPI payment QR" className="mx-auto h-44 w-44 rounded-2xl bg-white p-2 object-contain" /> : <div className="mx-auto flex h-44 w-44 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-xs text-white/35">QR NOT CONFIGURED</div>}<p className="mt-4 text-sm font-semibold">UPI payment</p>{payment?.upiId && <a href={`upi://pay?pa=${encodeURIComponent(payment.upiId)}&pn=RollRush`} className="mt-2 inline-block rounded-xl bg-white px-4 py-2 text-xs font-bold text-black">Pay via UPI app</a>}{payment?.upiId && <p className="mt-3 break-all text-xs text-white/55">{payment.upiId}</p>}<p className="mt-3 text-xs leading-5 text-white/35">{payment?.instructions || "Payment details are loading..."}</p></div><div className="mt-5 rounded-2xl border border-white/10 bg-black/15 p-4 text-xs leading-5 text-white/45">Do not submit a request until your payment has been completed. Keep the transaction reference available.</div></section>
+      <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-8"><p className="text-xs font-bold uppercase tracking-[0.16em] text-white/35">Step 2</p><h2 className="mt-2 text-xl font-bold">Submit payment details</h2><form onSubmit={handleSubmit} className="mt-6 space-y-5"><label className="block"><span className="text-sm font-semibold">Amount</span><div className="mt-2 flex items-center rounded-xl border border-white/10 bg-black/20 px-4"><span className="text-white/45">₹</span><input disabled={remainingToday === 0} type="number" min="1" step="1" value={amount} onChange={event => setAmount(event.target.value)} placeholder="Enter amount" className="w-full bg-transparent px-3 py-3 text-sm outline-none placeholder:text-white/25 disabled:cursor-not-allowed disabled:opacity-50" required /></div></label><label className="block"><span className="text-sm font-semibold">UTR / transaction reference</span><input disabled={remainingToday === 0} value={utr} onChange={event => setUtr(event.target.value)} placeholder="Enter payment reference" className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm outline-none placeholder:text-white/25 focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50" required /></label><label className="block"><span className="text-sm font-semibold">Payment proof</span><input disabled={remainingToday === 0} type="file" accept="image/*" onChange={event => setProofFile(event.target.files?.[0] ?? null)} className="mt-2 block w-full rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/55 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-xs file:font-bold file:text-black disabled:cursor-not-allowed disabled:opacity-50" /><span className="mt-2 block text-xs text-white/30">{proofFile ? `${proofFile.name} selected` : "Proof upload will be connected to secure storage next."}</span></label>{error && <div className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">{error}</div>}<div className="rounded-2xl border border-white/10 bg-black/15 p-4 text-xs leading-5 text-white/40">Deposits are credited only after admin verification. You can submit up to 5 deposit requests per day.</div><button disabled={loading || remainingToday === 0} type="submit" className="w-full rounded-xl bg-white px-4 py-3.5 text-sm font-bold text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50">{remainingToday === 0 ? "Daily limit reached" : loading ? "Submitting..." : "Submit deposit request"}</button></form></section>
+    </div>}
+  </div></main>;
 }
