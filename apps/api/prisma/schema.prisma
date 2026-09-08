@@ -97,10 +97,11 @@ model PasswordReset {
 }
 
 model Wallet {
-  id String @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid())
   userId String @unique @db.Uuid
   balancePaise BigInt @default(0)
   lockedPaise BigInt @default(0)
+  withdrawablePaise BigInt @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
