@@ -25,19 +25,22 @@ export default function AdminPage() {
 
   async function api(path: string, options: RequestInit = {}) {
     const headers: Record<string, string> = { "x-admin-key": key }; if (options.body) headers["Content-Type"] = "application/json";
-    const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers: { ...headers, ...(options.headers || {}) } });
-    const data = await response.json().catch(() => null); if (!response.ok) throw new Error(data?.message ?? "Admin request failed"); return data;
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers: { ...headers, ...(options.headers || {}) } });
+    } catch {
+      throw new Error(`Cannot connect to API at ${API_BASE_URL}. Make sure the API is running on port 4000.`);
+    }
+    const data = await response.json().catch(() => null); if (!response.ok) throw new Error(data?.message ?? `Admin request failed (${response.status})`); return data;
   }
   async function loadData(nextStatus = status) {
     if (!key.trim()) { setMessage("Enter the admin API key first."); return; } setLoading(true); setMessage("");
     try {
-      const [dash, list, paymentResponse] = await Promise.all([
+      const [dash, list, payment] = await Promise.all([
         api("/admin/dashboard"),
         api(`/admin/deposits?status=${nextStatus}`),
-        fetch(`${API_BASE_URL}/payment-settings`),
+        api("/payment-settings"),
       ]);
-      const payment = await paymentResponse.json().catch(() => null);
-      if (!paymentResponse.ok) throw new Error(payment?.message ?? "Unable to load payment settings");
       setDashboard(dash); setDeposits(list); setSettings(normalizeSettings(payment)); setAuthenticated(true);
     } catch (error) { setAuthenticated(false); setMessage(error instanceof Error ? error.message : "Unable to connect to admin API"); } finally { setLoading(false); }
   }
