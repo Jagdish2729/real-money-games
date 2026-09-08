@@ -30,3 +30,5 @@ This repository is a software foundation. It does not include payment-provider c
 ## Development
 
 The initial commit establishes the repository structure and design contracts. Payment integration and production credentials must be configured separately.
+
+<!-- Railway deployment trigger -->
