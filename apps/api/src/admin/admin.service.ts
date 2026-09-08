@@ -54,8 +54,11 @@ export class AdminService {
       if (!wallet || wallet.lockedPaise < withdrawal.amountPaise || wallet.withdrawablePaise < withdrawal.amountPaise) throw new BadRequestException("Withdrawal funds are not locked correctly");
       const ledger = await tx.walletTransaction.findUnique({ where: { referenceId: `withdrawal:${withdrawal.id}` } });
       if (!ledger || ledger.status !== "PENDING") throw new BadRequestException("Withdrawal ledger entry not found or already processed");
-      await tx.wallet.update({ where: { id: wallet.id }, data: { lockedPaise: wallet.lockedPaise - withdrawal.amountPaise, withdrawablePaise: wallet.withdrawablePaise - withdrawal.amountPaise } });
-      await tx.walletTransaction.update({ where: { id: ledger.id }, data: { status: "COMPLETED", description: `Withdrawal paid to ${withdrawal.upiId}` } });
+      const balanceBefore = wallet.balancePaise;
+      const balanceAfter = balanceBefore - withdrawal.amountPaise;
+      if (balanceAfter < 0n) throw new BadRequestException("Insufficient wallet balance");
+      await tx.wallet.update({ where: { id: wallet.id }, data: { balancePaise: balanceAfter, lockedPaise: wallet.lockedPaise - withdrawal.amountPaise, withdrawablePaise: wallet.withdrawablePaise - withdrawal.amountPaise } });
+      await tx.walletTransaction.update({ where: { id: ledger.id }, data: { status: "COMPLETED", balanceBefore, balanceAfter, description: `Withdrawal paid to ${withdrawal.upiId}` } });
       const updated = await tx.withdrawal.update({ where: { id: withdrawal.id }, data: { status: "PAID", reviewedAt: new Date(), rejectionReason: null } });
       return { message: "Withdrawal marked as paid", withdrawal: { id: updated.id, amountPaise: updated.amountPaise.toString(), upiId: updated.upiId, status: updated.status } };
     });
