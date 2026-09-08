@@ -25,6 +25,12 @@ export class WalletController {
     return this.walletService.getDepositLimit(user.id);
   }
 
+  @Get("withdrawals")
+  getWithdrawals(@CurrentUser() user: AuthUser, @Query("limit") limit?: string) {
+    const parsedLimit = limit ? Number.parseInt(limit, 10) : 20;
+    return this.walletService.getWithdrawals(user.id, Number.isNaN(parsedLimit) ? 20 : parsedLimit);
+  }
+
   @Post("deposits")
   createDeposit(
     @CurrentUser() user: AuthUser,
@@ -33,12 +39,17 @@ export class WalletController {
     if (body.amountRupees === undefined || !Number.isFinite(body.amountRupees) || body.amountRupees <= 0) {
       throw new BadRequestException("A valid deposit amount is required");
     }
-
-    if (!body.utr?.trim()) {
-      throw new BadRequestException("UTR is required");
-    }
-
+    if (!body.utr?.trim()) throw new BadRequestException("UTR is required");
     return this.walletService.createDeposit(user.id, body.amountRupees, body.utr.trim(), body.proofUrl?.trim());
+  }
+
+  @Post("withdrawals")
+  createWithdrawal(@CurrentUser() user: AuthUser, @Body() body: { amountRupees?: number; upiId?: string }) {
+    if (body.amountRupees === undefined || !Number.isFinite(body.amountRupees) || body.amountRupees <= 0) {
+      throw new BadRequestException("A valid withdrawal amount is required");
+    }
+    if (!body.upiId?.trim()) throw new BadRequestException("UPI ID is required");
+    return this.walletService.createWithdrawal(user.id, body.amountRupees, body.upiId.trim());
   }
 
   @Post("dev/top-up")
@@ -46,7 +57,6 @@ export class WalletController {
     if (body.amountRupees === undefined || !Number.isFinite(body.amountRupees) || body.amountRupees <= 0) {
       throw new BadRequestException("A valid top-up amount is required");
     }
-
     return this.walletService.devTopUp(user.id, body.amountRupees);
   }
 }
