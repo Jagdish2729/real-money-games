@@ -10,11 +10,18 @@ export class GameController {
   constructor(@Inject(GameService) private readonly gameService: GameService) {}
 
   @Post("dice/play")
-  playDice(@CurrentUser() user: AuthUser, @Body() body: { prediction?: number; stakeRupees?: number }) {
+  playDice(
+    @CurrentUser() user: AuthUser,
+    @Body() body: { prediction?: string; stakeRupees?: number },
+  ) {
     if (body.prediction === undefined || body.stakeRupees === undefined) {
       throw new BadRequestException("Prediction and stake are required");
     }
-    return this.gameService.playDice(user.id, Number(body.prediction), Number(body.stakeRupees));
+    const prediction = String(body.prediction).toUpperCase();
+    if (prediction !== "MORE" && prediction !== "LESS" && prediction !== "EQUALS") {
+      throw new BadRequestException("Prediction must be MORE, LESS, or EQUALS");
+    }
+    return this.gameService.playDice(user.id, prediction, Number(body.stakeRupees));
   }
 
   @Post("coin-toss/play")
