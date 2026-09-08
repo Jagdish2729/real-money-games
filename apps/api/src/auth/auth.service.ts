@@ -1,4 +1,4 @@
-import { Inject, Injectable, TooManyRequestsException, UnauthorizedException } from "@nestjs/common";
+import { Inject, Injectable, HttpException, HttpStatus, UnauthorizedException } from "@nestjs/common";
 import { createHash, randomInt } from "node:crypto";
 import { PrismaService } from "../prisma.service";
 import { TokenService } from "./token.service";
@@ -25,8 +25,9 @@ export class AuthService {
     if (latest) {
       const elapsedSeconds = Math.floor((Date.now() - latest.createdAt.getTime()) / 1000);
       if (elapsedSeconds < RESEND_COOLDOWN_SECONDS) {
-        throw new TooManyRequestsException(
+        throw new HttpException(
           `Please wait ${RESEND_COOLDOWN_SECONDS - elapsedSeconds} seconds before requesting another OTP`,
+          HttpStatus.TOO_MANY_REQUESTS,
         );
       }
     }
