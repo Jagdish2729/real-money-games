@@ -17,7 +17,9 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
 
   async function api(path: string, options: RequestInit = {}) {
-    const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers: { "Content-Type": "application/json", "x-admin-key": key, ...(options.headers || {}) } });
+    const headers: Record<string, string> = { "x-admin-key": key };
+    if (options.body) headers["Content-Type"] = "application/json";
+    const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers: { ...headers, ...(options.headers || {}) } });
     const data = await response.json().catch(() => null);
     if (!response.ok) throw new Error(data?.message ?? "Admin request failed");
     return data;
