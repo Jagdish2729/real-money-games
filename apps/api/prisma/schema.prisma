@@ -43,6 +43,7 @@ enum WithdrawalStatus {
 
 enum GameType {
   DICE
+  COIN_TOSS
 }
 
 enum GameStatus {
@@ -123,11 +124,11 @@ model Deposit {
   id              String        @id @default(uuid())
   userId          String        @db.Uuid
   amountPaise     BigInt
-  utr             String        @unique @db.VarChar(100)
+  utr             String         @unique @db.VarChar(100)
   proofUrl        String?       @db.VarChar(1000)
   status          DepositStatus @default(PENDING)
   reviewedAt      DateTime?
-  rejectionReason String?       @db.VarChar(500)
+  rejectionReason String?        @db.VarChar(500)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
